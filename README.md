@@ -93,3 +93,34 @@ instead of printing this line.
   one value per line from stdin, updates `g`/`r`/`s`, prints the per-line
   status, and on `STOP` prints the final switch count and the five
   weirdest values.
+
+## Tests
+
+`tests/test_groundhog.py` is an automated pytest suite (black-box,
+subprocess-based — it runs `groundhog.py` as a child process and asserts on
+its stdout/exit code, the same way a user would invoke it):
+
+```powershell
+py -3.12 -m pip install pytest   # once
+py -3.12 -m pytest tests/ -v
+```
+
+19 tests, all passing as of this writing. Coverage:
+
+- Argument handling: `-h` (usage + exit 0), missing/extra args (exit 84),
+  non-numeric `period` (exit 84).
+- Full runs against `utils/temperatures` at `period=5` and `period=3`:
+  exit code, the `g=nan`/`r=nan` warm-up lines before enough history
+  exists, the exact `Global tendency switched N times` count, the exact
+  `5 weirdest values are [...]` list, total line count, and that the
+  `a switch occurs` marker count agrees with the printed switch count.
+  Expected values were captured from an actual run and cross-checked
+  against the formulas documented above (average gain / rate of change /
+  stdev / Bollinger-band distance).
+- Degenerate inputs: `utils/temp0` (30 identical `0` readings) exits 84
+  because the Bollinger band collapses to a single point and `checkValues`
+  divides by zero — confirms the script's own `except ZeroDivisionError`
+  guard fires deterministically rather than crashing with a traceback.
+  Fewer readings than `period`, fewer than 5 accumulated "weirdest"
+  candidates, a non-numeric reading mid-stream, and stdin closing (EOF)
+  before a `STOP` line all also exit 84, as documented above.
